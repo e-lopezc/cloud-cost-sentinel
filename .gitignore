@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# AWS
+.aws/
+
+# Docker
+*.log
+
+# Reports (don't commit generated reports)
+reports/*.json
+reports/*.csv
+reports/*.html
+
+# OS
+.DS_Store
+Thumbs.db
