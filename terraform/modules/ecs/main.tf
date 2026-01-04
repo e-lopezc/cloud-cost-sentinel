@@ -1,5 +1,5 @@
 # This module creates an ECS cluster to lunch a scheduled task
-# The scheduled task will run a Fargate task every day at midnight UTC
+# the scheduled task will run a Fargate task every day at midnight UTC
 
 
 resource "aws_ecs_cluster" "cloud_cost_sentinel" {

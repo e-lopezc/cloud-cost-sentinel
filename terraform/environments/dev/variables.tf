@@ -9,3 +9,21 @@ variable "project_name" {
   type        = string
   default     = "cloud-cost-sentinel"
 }
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "email_address" {
+  description = "Email address to receive cost alert notifications (optional)"
+  type        = string
+  default     = ""
+}
+
+variable "tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
