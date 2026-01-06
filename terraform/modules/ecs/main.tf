@@ -122,7 +122,7 @@ resource "aws_cloudwatch_event_target" "ecs_task_target" {
     network_configuration {
       subnets          = var.subnets
       security_groups  = var.security_groups
-      assign_public_ip = var.assign_public_ip ? "ENABLED" : "DISABLED"
+      assign_public_ip = var.assign_public_ip
     }
   }
 }
