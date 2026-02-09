@@ -103,9 +103,9 @@ def main():
         logger.info("")
 
         # Step 3: Placeholder for other scanners
+        logger.info("  - EBS volume scanning: TODO")
         logger.info("Step 3: Other resource scanning (not yet implemented)")
         logger.info("  - RDS database scanning: TODO")
-        logger.info("  - EBS volume scanning: TODO")
         logger.info("  - S3 bucket scanning: TODO")
         logger.info("")
 

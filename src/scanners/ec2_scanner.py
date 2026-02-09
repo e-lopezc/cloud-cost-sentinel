@@ -10,6 +10,8 @@ from botocore.exceptions import ClientError
 from datetime import datetime, timedelta, timezone
 import logging
 
+from src.utils.aws_ec2_pricing import calculate_ec2_monthly_cost
+
 logger = logging.getLogger(__name__)
 
 
@@ -118,9 +120,30 @@ class EC2Scanner:
 
         return sum(dp["Average"] for dp in datapoints) / len(datapoints)
 
-    def analyze_ec2_instances(self):
+    def calculate_monthly_cost(self, instance_type, use_api=True):
+        """
+        Calculate the estimated monthly cost of an EC2 instance.
+
+        Args:
+            instance_type (str): EC2 instance type (e.g., 't3.micro', 'm5.large')
+            use_api (bool): Whether to use the AWS Price List API (default: True)
+
+        Returns:
+            float: Estimated monthly cost in USD
+        """
+        return calculate_ec2_monthly_cost(
+            instance_type=instance_type,
+            region=self.region,
+            operating_system="Linux",
+            use_api=use_api,
+        )
+
+    def analyze_ec2_instances(self, use_pricing_api=True):
         """
         Analyze running EC2 instances and identify idle ones.
+
+        Args:
+            use_pricing_api (bool): Whether to use the AWS Price List API for cost calculation (default: True)
 
         Returns:
             list: List of dictionaries containing idle instance details
@@ -143,6 +166,9 @@ class EC2Scanner:
                 is_idle = avg_cpu <= self.idle_threshold
 
                 if is_idle:
+                    monthly_cost = self.calculate_monthly_cost(
+                        instance["instance_type"], use_api=use_pricing_api
+                    )
                     idle_instance = {
                         "instance_id": instance_id,
                         "instance_name": instance["instance_name"],
@@ -151,6 +177,7 @@ class EC2Scanner:
                         "private_ip": instance["private_ip"],
                         "public_ip": instance["public_ip"],
                         "avg_cpu_percent": round(avg_cpu, 2),
+                        "estimated_monthly_cost": monthly_cost,
                         "analysis_period_days": self.days,
                         "idle_threshold": self.idle_threshold,
                         "recommendation": "Consider stopping or terminating this instance",
@@ -179,19 +206,29 @@ class EC2Scanner:
 
         return self.idle_instances
 
-    def get_scan_summary(self):
+    def get_scan_summary(self, use_pricing_api=True):
         """
         Get a summary of the scan results.
 
+        Args:
+            use_pricing_api (bool): Whether to use the AWS Price List API for cost calculation (default: True)
+
         Returns:
-            dict: Summary of the EC2 scan
+            dict: Summary of the EC2 scan including cost information
         """
+        # Calculate total monthly cost of idle instances
+        total_idle_cost = sum(
+            instance.get("estimated_monthly_cost", 0)
+            for instance in self.idle_instances
+        )
+
         return {
             "scanner": "EC2Scanner",
             "region": self.region,
             "analysis_period_days": self.days,
             "idle_threshold_percent": self.idle_threshold,
             "idle_instances_count": len(self.idle_instances),
+            "idle_instances_monthly_cost": round(total_idle_cost, 2),
             "idle_instances": self.idle_instances,
             "scan_timestamp": datetime.now(timezone.utc).isoformat(),
         }
