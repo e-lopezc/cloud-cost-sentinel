@@ -216,7 +216,7 @@ class TestS3ReporterAWSErrors:
         os.environ[_ENV_VAR] = BUCKET_NAME
         reporter = S3Reporter(region=REGION)
 
-        with patch.object(reporter, "_put_object", side_effect=ClientError(
+        with patch.object(reporter._client, "put_object", side_effect=ClientError(
             {"Error": {"Code": "NoSuchBucket", "Message": "The bucket does not exist"}},
             "PutObject",
         )):
@@ -230,12 +230,34 @@ class TestS3ReporterAWSErrors:
         os.environ[_ENV_VAR] = BUCKET_NAME
         reporter = S3Reporter(region=REGION)
 
-        with patch.object(reporter, "_put_object", side_effect=RuntimeError("unexpected")):
+        with patch.object(reporter._client, "put_object", side_effect=RuntimeError("unexpected")):
             try:
                 result = reporter.upload_reports(sample_findings, sample_html)
             except Exception as e:
                 pytest.fail(f"upload_reports raised unexpectedly: {e}")
             assert result is False
+
+    def test_returns_false_when_json_ok_but_html_fails(self, sample_findings, sample_html):
+        """Partial upload: JSON succeeds, HTML fails → returns False without raising."""
+        os.environ[_ENV_VAR] = BUCKET_NAME
+        reporter = S3Reporter(region=REGION)
+
+        call_count = 0
+
+        def _fail_on_second(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise ClientError(
+                    {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+                    "PutObject",
+                )
+
+        with patch.object(reporter._client, "put_object", side_effect=_fail_on_second):
+            result = reporter.upload_reports(sample_findings, sample_html)
+
+        assert result is False
+        assert call_count == 2
 
 
 # ------------------------------------------------------------------ #

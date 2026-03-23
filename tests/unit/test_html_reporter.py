@@ -369,7 +369,7 @@ class TestHTMLReporterFooter:
 
     def test_footer_present(self, reporter, full_findings):
         result = reporter.generate(full_findings)
-        assert "2025-06-15T02:00:00+00:00" in result
+        assert "June 15, 2025" in result
 
     def test_footer_disclaimer_present(self, reporter, full_findings):
         result = reporter.generate(full_findings)
@@ -429,3 +429,45 @@ class TestHTMLReporterEdgeCases:
         ]
         result = reporter.generate(findings)
         assert "$0.00" in result
+
+
+# ------------------------------------------------------------------ #
+# Security — XSS escaping
+# ------------------------------------------------------------------ #
+
+class TestHTMLReporterXSSEscaping:
+    """Verifies that user-controlled strings are HTML-escaped before rendering."""
+
+    def test_instance_name_with_script_tag_is_escaped(self, reporter, full_findings):
+        findings = dict(full_findings)
+        findings["ec2"] = dict(full_findings["ec2"])
+        findings["ec2"]["idle_instances"] = [
+            {**full_findings["ec2"]["idle_instances"][0],
+             "instance_name": '<script>alert("xss")</script>'}
+        ]
+        result = reporter.generate(findings)
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_bucket_name_with_html_is_escaped(self, reporter, full_findings):
+        findings = dict(full_findings)
+        findings["s3"] = dict(full_findings["s3"])
+        findings["s3"]["unused_buckets"] = [
+            {**full_findings["s3"]["unused_buckets"][0],
+             "bucket_name": '<img src=x onerror=alert(1)>'}
+        ]
+        result = reporter.generate(findings)
+        assert "<img" not in result
+        assert "&lt;img" in result
+
+    def test_db_instance_id_with_html_is_escaped(self, reporter, full_findings):
+        findings = dict(full_findings)
+        findings["rds"] = dict(full_findings["rds"])
+        findings["rds"]["idle_instances"] = [
+            {**full_findings["rds"]["idle_instances"][0],
+             "db_instance_id": '"><b>inject</b>'}
+        ]
+        result = reporter.generate(findings)
+        assert "<b>inject</b>" not in result
+        assert "&gt;" in result
+

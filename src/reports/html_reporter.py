@@ -1,9 +1,12 @@
 """
 HTML Report Generator for Cloud Cost Sentinel.
-Generates an inline-CSS HTML report suitable for email clients and S3 storage.
+Generates an HTML report (CSS via <style> block) suitable for browser viewing
+and S3 storage. Note: for full email-client compatibility, a CSS inliner such
+as premailer would be needed, as some clients (e.g. Gmail) strip <style> tags.
 """
 
 from datetime import datetime, timezone
+from html import escape
 
 
 _CSS = """
@@ -137,6 +140,11 @@ def _fmt_count(value: int) -> str:
     return f'<span class="badge badge-warn">{value}</span>'
 
 
+def _esc(value, default: str = "N/A") -> str:
+    """HTML-escape a value for safe interpolation; substitutes default for None."""
+    return escape(str(value if value is not None else default))
+
+
 class HTMLReporter:
     """Generates an inline-CSS HTML cost report from all_findings."""
 
@@ -205,8 +213,8 @@ class HTMLReporter:
   <div class="header">
     <h1>☁️ Cloud Cost Sentinel</h1>
     <div class="meta">
-      <strong>Account ID:</strong> {account_id}&nbsp;&nbsp;
-      <strong>Region:</strong> {region}<br>
+      <strong>Account ID:</strong> {_esc(account_id)}&nbsp;&nbsp;
+      <strong>Region:</strong> {_esc(region)}<br>
       <strong>Scan Date:</strong> {readable}
     </div>
   </div>"""
@@ -283,10 +291,10 @@ class HTMLReporter:
         for i in instances:
             rows += f"""
         <tr>
-          <td><code>{i.get('instance_id', 'N/A')}</code></td>
-          <td>{i.get('instance_name', 'N/A')}</td>
-          <td>{i.get('instance_type', 'N/A')}</td>
-          <td style="text-align:right">{i.get('avg_cpu_percent', 'N/A')}%</td>
+          <td><code>{_esc(i.get('instance_id'))}</code></td>
+          <td>{_esc(i.get('instance_name'))}</td>
+          <td>{_esc(i.get('instance_type'))}</td>
+          <td style="text-align:right">{_esc(i.get('avg_cpu_percent'))}%</td>
           <td style="text-align:right">{_fmt_cost(i.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
 
@@ -325,10 +333,10 @@ class HTMLReporter:
             for v in unattached:
                 rows += f"""
         <tr>
-          <td><code>{v.get('VolumeId', 'N/A')}</code></td>
-          <td>{v.get('VolumeType', 'N/A')}</td>
-          <td style="text-align:right">{v.get('Size', 'N/A')} GB</td>
-          <td>{v.get('AvailabilityZone', 'N/A')}</td>
+          <td><code>{_esc(v.get('VolumeId'))}</code></td>
+          <td>{_esc(v.get('VolumeType'))}</td>
+          <td style="text-align:right">{_esc(v.get('Size'))} GB</td>
+          <td>{_esc(v.get('AvailabilityZone'))}</td>
           <td style="text-align:right">{_fmt_cost(v.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
             sections += f"""
@@ -351,10 +359,10 @@ class HTMLReporter:
             for v in low_io:
                 rows += f"""
         <tr>
-          <td><code>{v.get('VolumeId', 'N/A')}</code></td>
-          <td>{v.get('VolumeType', 'N/A')}</td>
-          <td style="text-align:right">{v.get('Size', 'N/A')} GB</td>
-          <td>{v.get('AvailabilityZone', 'N/A')}</td>
+          <td><code>{_esc(v.get('VolumeId'))}</code></td>
+          <td>{_esc(v.get('VolumeType'))}</td>
+          <td style="text-align:right">{_esc(v.get('Size'))} GB</td>
+          <td>{_esc(v.get('AvailabilityZone'))}</td>
           <td style="text-align:right">{_fmt_cost(v.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
             sections += f"""
@@ -396,11 +404,11 @@ class HTMLReporter:
             for i in instances:
                 rows += f"""
         <tr>
-          <td><code>{i.get('db_instance_id', 'N/A')}</code></td>
-          <td>{i.get('db_instance_class', 'N/A')}</td>
-          <td>{i.get('engine', 'N/A')} {i.get('engine_version', '')}</td>
-          <td style="text-align:right">{i.get('avg_cpu_percent', 'N/A')}%</td>
-          <td style="text-align:right">{i.get('avg_connections', 'N/A')}</td>
+          <td><code>{_esc(i.get('db_instance_id'))}</code></td>
+          <td>{_esc(i.get('db_instance_class'))}</td>
+          <td>{_esc(i.get('engine'))} {_esc(i.get('engine_version', ''))}</td>
+          <td style="text-align:right">{_esc(i.get('avg_cpu_percent'))}%</td>
+          <td style="text-align:right">{_esc(i.get('avg_connections'))}</td>
           <td style="text-align:right">{_fmt_cost(i.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
             sections += f"""
@@ -429,11 +437,11 @@ class HTMLReporter:
                     create_time = create_time.split("T")[0]
                 rows += f"""
         <tr>
-          <td><code>{s.get('snapshot_id', 'N/A')}</code></td>
-          <td>{s.get('db_instance_id', 'N/A')}</td>
-          <td>{s.get('engine', 'N/A')}</td>
-          <td style="text-align:right">{s.get('allocated_storage_gb', 'N/A')} GB</td>
-          <td>{create_time}</td>
+          <td><code>{_esc(s.get('snapshot_id'))}</code></td>
+          <td>{_esc(s.get('db_instance_id'))}</td>
+          <td>{_esc(s.get('engine'))}</td>
+          <td style="text-align:right">{_esc(s.get('allocated_storage_gb'))} GB</td>
+          <td>{_esc(create_time)}</td>
           <td style="text-align:right">{_fmt_cost(s.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
             sections += f"""
@@ -471,11 +479,11 @@ class HTMLReporter:
         for b in buckets:
             rows += f"""
         <tr>
-          <td>{b.get('bucket_name', 'N/A')}</td>
-          <td>{b.get('region', 'N/A')}</td>
-          <td style="text-align:right">{b.get('size_formatted', 'N/A')}</td>
-          <td style="text-align:right">{b.get('object_count', 'N/A')}</td>
-          <td style="text-align:right">{b.get('total_requests', 0)}</td>
+          <td>{_esc(b.get('bucket_name'))}</td>
+          <td>{_esc(b.get('region'))}</td>
+          <td style="text-align:right">{_esc(b.get('size_formatted'))}</td>
+          <td style="text-align:right">{_esc(b.get('object_count'))}</td>
+          <td style="text-align:right">{_esc(b.get('total_requests', 0))}</td>
           <td style="text-align:right">{_fmt_cost(b.get('estimated_monthly_cost', 0))}/mo</td>
         </tr>"""
 
@@ -502,8 +510,13 @@ class HTMLReporter:
     # ------------------------------------------------------------------ #
 
     def _footer(self, scan_ts: str) -> str:
+        try:
+            ts = datetime.fromisoformat(scan_ts.replace("Z", "+00:00"))
+            readable = ts.strftime("%B %d, %Y at %H:%M UTC")
+        except Exception:
+            readable = escape(scan_ts)
         return f"""
   <div class="footer">
-    Generated by Cloud Cost Sentinel &mdash; {scan_ts}<br>
+    Generated by Cloud Cost Sentinel &mdash; {readable}<br>
     Costs are estimates based on AWS public pricing and may not reflect reserved/spot pricing or data transfer fees.
   </div>"""
