@@ -11,6 +11,8 @@ from scanners.ec2_scanner import EC2Scanner
 from scanners.ebs_scanner import EBSScanner
 from scanners.rds_scanner import RDSScanner
 from scanners.s3_scanner import S3Scanner
+from reports.html_reporter import HTMLReporter
+from reports.s3_reporter import S3Reporter
 from botocore.exceptions import ClientError, NoCredentialsError
 
 # Configure logging
@@ -179,6 +181,18 @@ def main():
             "rds": rds_summary,
             "s3": s3_summary,
         }
+
+        # Generate and upload reports
+        logger.info("Step 6: Generating and uploading reports...")
+        try:
+            html_report = HTMLReporter().generate(all_findings)
+            uploaded = S3Reporter(region=region).upload_reports(all_findings, html_report)
+            if uploaded:
+                logger.info("✓ Reports uploaded to S3 successfully")
+            else:
+                logger.info("Reports were not uploaded to S3 (see warnings above)")
+        except Exception as e:
+            logger.warning(f"Report generation/upload failed (scan results unaffected): {e}")
 
         # Success
         total_savings = (
