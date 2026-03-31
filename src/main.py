@@ -13,6 +13,7 @@ from scanners.rds_scanner import RDSScanner
 from scanners.s3_scanner import S3Scanner
 from reports.html_reporter import HTMLReporter
 from reports.s3_reporter import S3Reporter
+from notifications.sns_publisher import SNSPublisher
 from botocore.exceptions import ClientError, NoCredentialsError
 
 # Configure logging
@@ -184,6 +185,7 @@ def main():
 
         # Generate and upload reports
         logger.info("Step 6: Generating and uploading reports...")
+        html_report = None
         try:
             html_report = HTMLReporter().generate(all_findings)
             uploaded = S3Reporter(region=region).upload_reports(all_findings, html_report)
@@ -193,6 +195,20 @@ def main():
                 logger.info("Reports were not uploaded to S3 (see warnings above)")
         except Exception as e:
             logger.warning(f"Report generation/upload failed (scan results unaffected): {e}")
+
+        # Send email notification via SNS
+        logger.info("Step 7: Sending email notification via SNS...")
+        try:
+            if html_report:
+                notified = SNSPublisher(region=region).publish_report(all_findings, html_report)
+                if notified:
+                    logger.info("✓ SNS notification sent successfully")
+                else:
+                    logger.info("SNS notification was not sent (see warnings above)")
+            else:
+                logger.warning("Skipping SNS notification: HTML report was not generated")
+        except Exception as e:
+            logger.warning(f"SNS notification failed (scan results unaffected): {e}")
 
         # Success
         total_savings = (
