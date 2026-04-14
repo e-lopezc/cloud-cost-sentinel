@@ -10,8 +10,8 @@ import os
 import pytest
 import boto3
 from moto import mock_aws
-from unittest.mock import patch, MagicMock
-from botocore.exceptions import ClientError, BotoCoreError
+from unittest.mock import patch
+from botocore.exceptions import ClientError
 
 from notifications.sns_publisher import SNSPublisher, _ENV_VAR
 
@@ -91,13 +91,13 @@ class TestMissingEnvVar:
 
 @mock_aws
 class TestSuccessfulPublish:
-    def test_returns_true_on_success(self, sample_findings, sample_html):
+    def test_returns_true_on_success(self, aws_credentials, sample_findings, sample_html):
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
         result = SNSPublisher(region=REGION).publish_report(sample_findings, sample_html)
         assert result is True
 
-    def test_publishes_to_correct_topic(self, sample_findings, sample_html):
+    def test_publishes_to_correct_topic(self, aws_credentials, sample_findings, sample_html):
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
 
@@ -120,7 +120,7 @@ class TestSuccessfulPublish:
         messages = sqs.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)
         assert "Messages" in messages
 
-    def test_html_report_is_message_body(self, sample_findings, sample_html):
+    def test_html_report_is_message_body(self, aws_credentials, sample_findings, sample_html):
         """The full HTML string must be the SNS Message payload."""
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
@@ -192,7 +192,7 @@ class TestTotalSavings:
 
 @mock_aws
 class TestGracefulFailure:
-    def test_returns_false_on_client_error(self, sample_findings, sample_html):
+    def test_returns_false_on_client_error(self, aws_credentials, sample_findings, sample_html):
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
 
@@ -208,7 +208,7 @@ class TestGracefulFailure:
             result = publisher.publish_report(sample_findings, sample_html)
         assert result is False
 
-    def test_returns_false_on_unexpected_exception(self, sample_findings, sample_html):
+    def test_returns_false_on_unexpected_exception(self, aws_credentials, sample_findings, sample_html):
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
 
@@ -217,7 +217,7 @@ class TestGracefulFailure:
             result = publisher.publish_report(sample_findings, sample_html)
         assert result is False
 
-    def test_logs_error_on_client_error(self, sample_findings, sample_html, caplog):
+    def test_logs_error_on_client_error(self, aws_credentials, sample_findings, sample_html, caplog):
         import logging
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
