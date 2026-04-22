@@ -175,5 +175,18 @@ teardown:
 	@echo "⚠️  WARNING: This will destroy ALL AWS infrastructure for this project."
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
+	$(eval ECR_REPO := $(shell cd $(TF_DIR) && terraform output -raw ecr_repository_name 2>/dev/null))
+	@if [ -n "$(ECR_REPO)" ]; then \
+		echo "Purging all images from ECR repository '$(ECR_REPO)'..."; \
+		IMAGE_IDS=$$(aws ecr list-images --repository-name $(ECR_REPO) --region $(AWS_REGION) --query 'imageIds[*]' --output json 2>/dev/null); \
+		if [ "$$IMAGE_IDS" != "[]" ] && [ -n "$$IMAGE_IDS" ]; then \
+			aws ecr batch-delete-image --repository-name $(ECR_REPO) --region $(AWS_REGION) --image-ids "$$IMAGE_IDS" > /dev/null; \
+			echo "Images purged."; \
+		else \
+			echo "No images found in ECR repository. Skipping purge."; \
+		fi \
+	else \
+		echo "Could not determine ECR repository name. Skipping image purge."; \
+	fi
 	cd $(TF_DIR) && terraform destroy -auto-approve
 	@echo "✅ All infrastructure destroyed."
