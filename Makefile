@@ -1,5 +1,5 @@
 .PHONY: help unit-tests unit-tests-clean integration-tests test-all clean venv install lint format \
-        docker-login docker-build docker-push tf-apply deploy run-task
+        docker-login docker-build docker-push tf-apply deploy run-task teardown
 
 # Variables
 VENV_DIR := .venv
@@ -39,6 +39,7 @@ help:
 	@echo "  make docker-push       - Push Docker image to ECR"
 	@echo "  make deploy            - Full deploy: tf-apply → docker-login → build → push"
 	@echo "  make run-task          - Manually trigger ECS task (for testing)"
+	@echo "  make teardown          - Destroy ALL AWS infrastructure (terraform destroy)"
 	@echo ""
 	@echo "Override defaults: make deploy AWS_REGION=us-west-2 IMAGE_TAG=v1.0.0"
 	@echo ""
@@ -168,3 +169,11 @@ run-task:
 		--network-configuration "awsvpcConfiguration={subnets=[$(shell cd $(TF_DIR) && terraform output -json public_subnet_ids | tr -d '[] ' | sed 's/,/,/g' | sed 's/"//g')],securityGroups=[$(SG)],assignPublicIp=ENABLED}" \
 		--region $(AWS_REGION)
 	@echo "ECS task triggered. Check CloudWatch logs for output."
+
+# Tear down all AWS infrastructure (Terraform destroy)
+teardown:
+	@echo "⚠️  WARNING: This will destroy ALL AWS infrastructure for this project."
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	cd $(TF_DIR) && terraform destroy -auto-approve
+	@echo "✅ All infrastructure destroyed."
