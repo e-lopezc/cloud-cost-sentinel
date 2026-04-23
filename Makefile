@@ -1,5 +1,5 @@
 .PHONY: help unit-tests unit-tests-clean integration-tests test-all clean venv install lint format \
-        docker-login docker-build docker-push tf-apply deploy run-task teardown
+        docker-login docker-build docker-push tf-apply tf-init-upgrade deploy run-task teardown
 
 # Variables
 VENV_DIR := .venv
@@ -34,6 +34,7 @@ help:
 	@echo ""
 	@echo "Deployment:"
 	@echo "  make tf-apply          - Apply Terraform (provisions all AWS infrastructure)"
+	@echo "  make tf-init-upgrade   - Upgrade Terraform providers (updates lock file)"
 	@echo "  make docker-login      - Authenticate Docker to ECR"
 	@echo "  make docker-build      - Build Docker image tagged for ECR"
 	@echo "  make docker-push       - Push Docker image to ECR"
@@ -120,28 +121,35 @@ format: install
 # Apply Terraform to provision/update all AWS infrastructure
 tf-apply:
 	@echo "Applying Terraform in $(TF_DIR)..."
-	cd $(TF_DIR) && terraform init -upgrade && terraform apply -auto-approve
+	cd $(TF_DIR) && terraform init && terraform apply -auto-approve
 	@echo "Terraform apply complete."
 
-# Authenticate Docker CLI to ECR (requires AWS CLI + credentials)
+# Upgrade Terraform providers (opt-in; updates .terraform.lock.hcl)
+tf-init-upgrade:
+	@echo "Upgrading Terraform providers in $(TF_DIR)..."
+	cd $(TF_DIR) && terraform init -upgrade
+	@echo "Provider upgrade complete."
+
+# Authenticate Docker CLI to ECR — derives region from the ECR URL itself
 docker-login:
 	$(eval ECR_URL := $(shell cd $(TF_DIR) && terraform output -raw ecr_repository_url))
-	$(eval AWS_ACCOUNT_ID := $(shell echo $(ECR_URL) | cut -d'.' -f1))
-	@echo "Logging in to ECR at $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com..."
-	aws ecr get-login-password --region $(AWS_REGION) | \
+	$(eval ECR_REGISTRY := $(shell echo $(ECR_URL) | cut -d'/' -f1))
+	$(eval ECR_REGION := $(shell echo $(ECR_REGISTRY) | cut -d'.' -f4))
+	@echo "Logging in to ECR at $(ECR_REGISTRY)..."
+	aws ecr get-login-password --region $(ECR_REGION) | \
 		docker login --username AWS --password-stdin \
-		$(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+		$(ECR_REGISTRY)
 	@echo "ECR login successful."
 
-# Build the Docker image, tagged for ECR
-docker-build: docker-login
+# Build the Docker image, tagged for ECR (no AWS credentials required)
+docker-build:
 	$(eval ECR_URL := $(shell cd $(TF_DIR) && terraform output -raw ecr_repository_url))
 	@echo "Building Docker image: $(ECR_URL):$(IMAGE_TAG)..."
 	docker build -t $(ECR_URL):$(IMAGE_TAG) .
 	@echo "Docker build complete."
 
-# Push the image to ECR
-docker-push: docker-build
+# Push the image to ECR (login + build first)
+docker-push: docker-login docker-build
 	$(eval ECR_URL := $(shell cd $(TF_DIR) && terraform output -raw ecr_repository_url))
 	@echo "Pushing $(ECR_URL):$(IMAGE_TAG) to ECR..."
 	docker push $(ECR_URL):$(IMAGE_TAG)
@@ -157,16 +165,16 @@ deploy: tf-apply docker-push
 
 # Manually trigger the ECS task (useful for testing without waiting for cron)
 run-task:
-	$(eval CLUSTER := $(shell cd $(TF_DIR) && terraform output -raw ecs_cluster_name))
+	$(eval CLUSTER  := $(shell cd $(TF_DIR) && terraform output -raw ecs_cluster_name))
 	$(eval TASK_DEF := $(shell cd $(TF_DIR) && terraform output -raw ecs_task_definition_arn))
-	$(eval SUBNETS := $(shell cd $(TF_DIR) && terraform output -json public_subnet_ids | tr -d '[]"' | tr ',' ' '))
-	$(eval SG := $(shell cd $(TF_DIR) && terraform output -raw security_group_id))
+	$(eval SUBNETS  := $(shell cd $(TF_DIR) && terraform output -json public_subnet_ids | tr -d '[] "'))
+	$(eval SG       := $(shell cd $(TF_DIR) && terraform output -raw security_group_id))
 	@echo "Triggering ECS task on cluster: $(CLUSTER)..."
 	aws ecs run-task \
 		--cluster $(CLUSTER) \
 		--task-definition $(TASK_DEF) \
 		--launch-type FARGATE \
-		--network-configuration "awsvpcConfiguration={subnets=[$(shell cd $(TF_DIR) && terraform output -json public_subnet_ids | tr -d '[] ' | sed 's/,/,/g' | sed 's/"//g')],securityGroups=[$(SG)],assignPublicIp=ENABLED}" \
+		--network-configuration "awsvpcConfiguration={subnets=[$(SUBNETS)],securityGroups=[$(SG)],assignPublicIp=ENABLED}" \
 		--region $(AWS_REGION)
 	@echo "ECS task triggered. Check CloudWatch logs for output."
 
