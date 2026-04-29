@@ -142,10 +142,12 @@ docker-login:
 	@echo "ECR login successful."
 
 # Build the Docker image, tagged for ECR (no AWS credentials required)
+# --platform linux/amd64 ensures the image runs on ECS Fargate (AMD64) even when
+# building on Apple Silicon (ARM64) or other non-AMD64 hosts.
 docker-build:
 	$(eval ECR_URL := $(shell cd $(TF_DIR) && terraform output -raw ecr_repository_url))
 	@echo "Building Docker image: $(ECR_URL):$(IMAGE_TAG)..."
-	docker build -t $(ECR_URL):$(IMAGE_TAG) .
+	docker build --platform linux/amd64 -t $(ECR_URL):$(IMAGE_TAG) .
 	@echo "Docker build complete."
 
 # Push the image to ECR (login + build first)
