@@ -186,11 +186,14 @@ def main():
         # Generate and upload reports
         logger.info("Step 6: Generating and uploading reports...")
         html_report = None
+        report_url = None
         try:
             html_report = HTMLReporter().generate(all_findings)
-            uploaded = S3Reporter(region=region).upload_reports(all_findings, html_report)
+            s3_reporter = S3Reporter(region=region)
+            uploaded = s3_reporter.upload_reports(all_findings, html_report)
             if uploaded:
                 logger.info("✓ Reports uploaded to S3 successfully")
+                report_url = s3_reporter.presign_report_url(all_findings)
             else:
                 logger.info("Reports were not uploaded to S3 (see warnings above)")
         except Exception as e:
@@ -200,7 +203,7 @@ def main():
         logger.info("Step 7: Sending email notification via SNS...")
         try:
             if html_report:
-                notified = SNSPublisher(region=region).publish_report(all_findings, html_report)
+                notified = SNSPublisher(region=region).publish_report(all_findings, html_report, report_url)
                 if notified:
                     logger.info("✓ SNS notification sent successfully")
                 else:

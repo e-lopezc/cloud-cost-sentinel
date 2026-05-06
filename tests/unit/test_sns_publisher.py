@@ -120,8 +120,8 @@ class TestSuccessfulPublish:
         messages = sqs.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)
         assert "Messages" in messages
 
-    def test_html_report_is_message_body(self, aws_credentials, sample_findings, sample_html):
-        """The full HTML string must be the SNS Message payload."""
+    def test_message_is_plain_text_not_html(self, aws_credentials, sample_findings, sample_html):
+        """The SNS message body must be plain text, not raw HTML."""
         topic_arn = _create_topic()
         os.environ[_ENV_VAR] = topic_arn
 
@@ -129,8 +129,32 @@ class TestSuccessfulPublish:
         with patch.object(publisher._client, "publish", wraps=publisher._client.publish) as mock_pub:
             publisher.publish_report(sample_findings, sample_html)
             call_kwargs = mock_pub.call_args[1]
-            assert call_kwargs["Message"] == sample_html
             assert call_kwargs["TopicArn"] == topic_arn
+            assert "<html>" not in call_kwargs["Message"]
+            assert "Cloud Cost Sentinel" in call_kwargs["Message"]
+
+    def test_message_includes_report_url_when_provided(self, aws_credentials, sample_findings, sample_html):
+        """When a report_url is given it should appear in the message body."""
+        topic_arn = _create_topic()
+        os.environ[_ENV_VAR] = topic_arn
+        url = "https://s3.amazonaws.com/bucket/report.html?X-Amz-Signature=abc"
+
+        publisher = SNSPublisher(region=REGION)
+        with patch.object(publisher._client, "publish", wraps=publisher._client.publish) as mock_pub:
+            publisher.publish_report(sample_findings, sample_html, report_url=url)
+            message = mock_pub.call_args[1]["Message"]
+            assert url in message
+
+    def test_message_excludes_report_url_section_when_none(self, aws_credentials, sample_findings, sample_html):
+        """When no report_url is provided the link section must not appear."""
+        topic_arn = _create_topic()
+        os.environ[_ENV_VAR] = topic_arn
+
+        publisher = SNSPublisher(region=REGION)
+        with patch.object(publisher._client, "publish", wraps=publisher._client.publish) as mock_pub:
+            publisher.publish_report(sample_findings, sample_html, report_url=None)
+            message = mock_pub.call_args[1]["Message"]
+            assert "Full HTML report" not in message
 
 
 # ------------------------------------------------------------------ #
