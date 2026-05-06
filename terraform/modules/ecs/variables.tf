@@ -68,6 +68,11 @@ variable "sns_topic_arn" {
   type        = string
 }
 
+variable "s3_bucket_name" {
+  description = "The name of the S3 bucket for cost reports (passed as environment variable to container)"
+  type        = string
+}
+
 variable "aws_region" {
   description = "AWS region for the ECS task"
   type        = string

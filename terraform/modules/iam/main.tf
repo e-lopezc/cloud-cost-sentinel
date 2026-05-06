@@ -109,7 +109,13 @@ data "aws_iam_policy_document" "ecs_task_role_policy" {
     resources = ["*"]
   }
 
-  # S3 permissions - write reports to bucket
+  # S3 permissions - list all buckets (for scanner) and write reports
+  statement {
+    effect  = "Allow"
+    actions = ["s3:ListAllMyBuckets"]
+    resources = ["*"]
+  }
+
   statement {
     effect = "Allow"
     actions = [

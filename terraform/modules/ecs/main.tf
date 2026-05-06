@@ -34,8 +34,12 @@ resource "aws_ecs_task_definition" "cloud_cost_sentinel_task" {
 
       environment = [
         {
-          name  = "SNS_TOPIC_ARN"
+          name  = "SENTINEL_SNS_TOPIC_ARN"
           value = var.sns_topic_arn
+        },
+        {
+          name  = "SENTINEL_REPORT_BUCKET"
+          value = var.s3_bucket_name
         },
         {
           name  = "AWS_REGION"

@@ -85,6 +85,9 @@ module "ecs" {
   # SNS configuration
   sns_topic_arn = module.sns.sns_topic_arn
 
+  # S3 configuration
+  s3_bucket_name = module.s3.s3_bucket_name
+
   # Network configuration from networking module
   subnets          = module.networking.public_subnet_ids
   security_groups  = [module.networking.security_group_id]
