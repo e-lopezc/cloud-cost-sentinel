@@ -33,6 +33,26 @@ class S3Reporter:
     # Public interface
     # ------------------------------------------------------------------ #
 
+    def presign_report_url(self, all_findings: dict, expiry_seconds: int = 604_800) -> str | None:
+        """
+        Generate a pre-signed URL for the HTML report (default expiry: 7 days).
+
+        Returns None if the bucket is not configured or signing fails.
+        """
+        if not self.bucket:
+            return None
+        date_prefix = self._date_prefix(all_findings)
+        html_key = f"reports/{date_prefix}/report.html"
+        try:
+            return self._client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": html_key},
+                ExpiresIn=expiry_seconds,
+            )
+        except Exception as e:
+            logger.warning(f"Could not generate pre-signed URL for report: {e}")
+            return None
+
     def upload_reports(self, all_findings: dict, html_report: str) -> bool:
         """
         Upload findings.json and report.html to S3.
