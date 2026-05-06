@@ -43,7 +43,8 @@ class SNSPublisher:
 
         Args:
             all_findings: The raw findings dict from main.py.
-            html_report:  Unused; kept for backward compatibility.
+            html_report:  Unused; kept for backward compatibility with callers
+                          that already pass the rendered HTML string.
             report_url:   Optional pre-signed URL to the S3 HTML report.
 
         Returns:
@@ -57,6 +58,7 @@ class SNSPublisher:
 
         subject = self._build_subject(all_findings)
         message = self._build_plain_text_body(all_findings, report_url)
+        _ = html_report  # unused; retained for backward-compatible call sites
 
         try:
             self._client.publish(

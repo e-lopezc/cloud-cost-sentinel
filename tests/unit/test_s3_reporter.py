@@ -287,3 +287,53 @@ class TestS3ReporterDatePrefix:
         reporter = S3Reporter(region=REGION)
         findings = {"scan_timestamp": "2025-09-01T12:00:00Z"}
         assert reporter._date_prefix(findings) == "2025-09-01"
+
+
+# ------------------------------------------------------------------ #
+# presign_report_url
+# ------------------------------------------------------------------ #
+
+class TestPresignReportUrl:
+    """Tests for S3Reporter.presign_report_url()."""
+
+    def test_returns_none_when_bucket_not_configured(self, sample_findings):
+        reporter = S3Reporter(region=REGION)
+        assert reporter.presign_report_url(sample_findings) is None
+
+    @mock_aws
+    def test_returns_url_string_on_success(self, aws_credentials, sample_findings):
+        os.environ[_ENV_VAR] = BUCKET_NAME
+        s3 = boto3.client("s3", region_name=REGION)
+        s3.create_bucket(Bucket=BUCKET_NAME)
+
+        reporter = S3Reporter(region=REGION)
+        url = reporter.presign_report_url(sample_findings)
+
+        assert url is not None
+        assert isinstance(url, str)
+        assert BUCKET_NAME in url
+        assert f"reports/{SCAN_DATE}/report.html" in url
+
+    @mock_aws
+    def test_url_uses_correct_key(self, aws_credentials, sample_findings):
+        os.environ[_ENV_VAR] = BUCKET_NAME
+        s3 = boto3.client("s3", region_name=REGION)
+        s3.create_bucket(Bucket=BUCKET_NAME)
+
+        reporter = S3Reporter(region=REGION)
+        url = reporter.presign_report_url(sample_findings)
+
+        assert f"reports/{SCAN_DATE}/report.html" in url
+
+    def test_returns_none_on_signing_failure(self, sample_findings):
+        os.environ[_ENV_VAR] = BUCKET_NAME
+        reporter = S3Reporter(region=REGION)
+
+        with patch.object(
+            reporter._client,
+            "generate_presigned_url",
+            side_effect=Exception("signing error"),
+        ):
+            result = reporter.presign_report_url(sample_findings)
+
+        assert result is None
