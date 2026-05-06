@@ -198,5 +198,24 @@ teardown:
 	else \
 		echo "Could not determine ECR repository name. Skipping image purge."; \
 	fi
+	$(eval S3_BUCKET := $(shell cd $(TF_DIR) && terraform output -raw s3_bucket_name 2>/dev/null))
+	@if [ -n "$(S3_BUCKET)" ]; then \
+		echo "Purging all object versions from S3 bucket '$(S3_BUCKET)'..."; \
+		VERSIONS=$$(aws s3api list-object-versions --bucket $(S3_BUCKET) --region $(AWS_REGION) \
+			--query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output json 2>/dev/null); \
+		if [ -n "$$VERSIONS" ] && [ "$$VERSIONS" != "null" ] && echo "$$VERSIONS" | grep -q '"Key"'; then \
+			aws s3api delete-objects --bucket $(S3_BUCKET) --region $(AWS_REGION) --delete "$$VERSIONS" > /dev/null; \
+			echo "Object versions purged."; \
+		fi; \
+		MARKERS=$$(aws s3api list-object-versions --bucket $(S3_BUCKET) --region $(AWS_REGION) \
+			--query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output json 2>/dev/null); \
+		if [ -n "$$MARKERS" ] && [ "$$MARKERS" != "null" ] && echo "$$MARKERS" | grep -q '"Key"'; then \
+			aws s3api delete-objects --bucket $(S3_BUCKET) --region $(AWS_REGION) --delete "$$MARKERS" > /dev/null; \
+			echo "Delete markers purged."; \
+		fi; \
+		echo "S3 bucket emptied."; \
+	else \
+		echo "Could not determine S3 bucket name. Skipping S3 purge."; \
+	fi
 	cd $(TF_DIR) && terraform destroy -auto-approve
 	@echo "✅ All infrastructure destroyed."
