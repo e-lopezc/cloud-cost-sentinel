@@ -14,8 +14,7 @@ EventBridge (daily cron)
             └─► Alerts  → SNS → Email
 ```
 
-All infrastructure is managed with Terraform and lives in the appropiate enviroment you configured  `terraform/environments/<dev/staging/prod>`
-For demostration purposes I have dev directory there.
+All infrastructure is managed with Terraform under `terraform/environments/`. The repository ships with a `dev` environment ready to use.
 
 ---
 
@@ -115,6 +114,18 @@ This will:
 1. Purge all ECR images
 2. Empty the S3 reports bucket (all versions)
 3. Run `terraform destroy`
+
+---
+
+## Lessons learned
+
+---
+
+## Architecture tradeoffs
+
+---
+
+## Potential improvements
 
 ---
 
