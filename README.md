@@ -14,7 +14,8 @@ EventBridge (daily cron)
             └─► Alerts  → SNS → Email
 ```
 
-All infrastructure is managed with Terraform and lives in `terraform/environments/dev`.
+All infrastructure is managed with Terraform and lives in the appropiate enviroment you configured  `terraform/environments/<dev/staging/prod>`
+For demostration purposes I have dev directory there.
 
 ---
 
