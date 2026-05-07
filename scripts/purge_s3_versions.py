@@ -13,8 +13,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 BATCH_SIZE = 1000
 
 
-def purge_bucket(bucket: str, region: str) -> None:
-    s3 = boto3.client("s3", region_name=region)
+def purge_bucket(bucket: str, region: str, *, s3_client=None) -> None:
+    s3 = s3_client or boto3.client("s3", region_name=region)
     paginator = s3.get_paginator("list_object_versions")
 
     total_deleted = 0
