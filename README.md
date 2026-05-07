@@ -1,56 +1,123 @@
 # Cloud Cost Sentinel
 
-A containerized AWS cost monitoring system that identifies wasteful resources and recommends optimization opportunities.
+A containerized AWS cost monitoring tool that scans for idle/wasteful resources and delivers HTML reports and email alerts — fully automated on a daily schedule.
 
-## 🎯 Project Status
+---
 
-**Current Phase**: Week 1 - Docker + ECS Fundamentals
+## Architecture
 
-- [x] Project structure created
-- [ ] Docker container running locally
-- [ ] ECS task execution
-- [ ] EventBridge scheduling
-- [ ] Resource scanning logic
-- [ ] Report generation
-- [ ] Email notifications
-- [ ] Production testing
+```
+EventBridge (daily cron)
+    └─► ECS Fargate Task (Docker container)
+            ├─► Scans: EC2 · EBS · RDS · S3
+            ├─► Reports → S3 bucket (HTML + JSON)
+            └─► Alerts  → SNS → Email
+```
 
-## 🏗️ Architecture
+All infrastructure is managed with Terraform and lives in `terraform/environments/dev`.
 
-*(Coming in Week 1)*
+---
 
-## 🚀 Quick Start
+## What it detects
 
-*(Coming in Week 1)*
+| Resource | Condition |
+|----------|-----------|
+| EC2 instances | CPU < 5% average over 7 days |
+| EBS volumes | Unattached, or I/O < 100 ops/day over 14 days |
+| RDS instances | No connections in 14 days |
+| RDS snapshots | Older than 90 days |
+| S3 buckets | No access in 180 days |
 
-## 📋 Features
+---
 
-**Cost Waste Detection:**
-- Idle EC2 instances (CPU <5% for 7 days)
-- Forgotten RDS databases (no connections in 14 days)
-- Old RDS snapshots (>90 days old)
-- Unused S3 buckets (no access in 180 days)
-- Unattached EBS volumes
+## Prerequisites
 
-**Reporting:**
-- JSON, CSV, and HTML reports
-- S3 storage with lifecycle policies
-- Email notifications via SNS
+- AWS account with appropriate permissions
+- [aws-vault](https://github.com/99designs/aws-vault) (or any AWS credential method)
+- Terraform ≥ 1.0
+- Docker
+- Python 3.13+
+- `make`
 
-## 💰 Cost Analysis
+---
 
-*(Coming in Week 4)*
+## Quick start
 
-## 🧪 Testing
+```bash
+# 1. Provision infrastructure + build and push Docker image
+make deploy
 
-*(Coming in Week 4)*
+# 2. Run a scan immediately (without waiting for the daily schedule)
+make run-task
 
-## 📚 Documentation
+# 3. Check results in CloudWatch
+# Log group: /ecs/cloud-cost-sentinel-dev
+# Reports:   s3://cloud-cost-sentinel-us-east-1-dev-cost-reports/reports/<date>/
+```
 
-- [Week-by-Week Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
-- [Architecture Decisions](docs/ARCHITECTURE.md)
-- [Lessons Learned](docs/LESSONS_LEARNED.md)
+---
+
+## Makefile reference
+
+| Command | Description |
+|---------|-------------|
+| `make deploy` | Full deploy: Terraform apply → Docker build → push to ECR |
+| `make run-task` | Trigger ECS task manually for immediate scan |
+| `make unit-tests` | Run unit tests (creates venv, installs deps) |
+| `make test-all` | Run all tests with coverage report |
+| `make teardown` | Destroy all AWS infrastructure (prompts 5s cancel window) |
+| `make tf-apply` | Apply Terraform only |
+| `make docker-push` | Build and push Docker image only |
+
+Override defaults: `make deploy AWS_REGION=us-west-2 IMAGE_TAG=v1.0.0`
+
+---
+
+## Project structure
+
+```
+src/
+├── main.py                  # Entry point: orchestrates scan → report → notify
+├── scanners/                # EC2, EBS, RDS, S3 scanners
+├── reports/                 # HTML report builder + S3 uploader
+└── notifications/           # SNS publisher
+
+terraform/
+├── environments/dev/        # Root module (wires everything together)
+└── modules/                 # ecr · ecs · iam · networking · s3 · sns
+
+scripts/
+└── purge_s3_versions.py     # Helper: empties versioned S3 bucket (used by teardown)
+
+tests/
+└── unit/                    # moto-based unit tests for all scanners and reporters
+```
+
+---
+
+## Running tests
+
+```bash
+make unit-tests       # unit tests only
+make test-all         # unit + integration tests with coverage
+```
+
+---
+
+## Tearing down
+
+```bash
+make teardown
+```
+
+This will:
+1. Purge all ECR images
+2. Empty the S3 reports bucket (all versions)
+3. Run `terraform destroy`
+
+---
 
 ## License
 
-MIT License - Educational and portfolio use
+MIT — educational and portfolio use
+
