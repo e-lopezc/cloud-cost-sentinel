@@ -19,19 +19,38 @@ def aws_credentials():
 
     This fixture sets up fake AWS credentials that moto requires
     to work properly. These are not real credentials.
+
+    AWS_CREDENTIAL_EXPIRATION is explicitly removed so that botocore
+    does not create RefreshableCredentials (which would trigger a real
+    credential refresh and fail when the host has expired aws-vault /
+    SSO tokens in the environment).
     """
+    _KEYS = [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SECURITY_TOKEN",
+        "AWS_SESSION_TOKEN",
+        "AWS_CREDENTIAL_EXPIRATION",
+    ]
+
+    # Stash originals so we can restore after the test
+    originals = {k: os.environ.get(k) for k in _KEYS}
+
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
     os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+    os.environ.pop("AWS_CREDENTIAL_EXPIRATION", None)
 
     yield
 
-    # Cleanup (optional, as each test gets fresh environment)
-    for key in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
-                "AWS_SECURITY_TOKEN", "AWS_SESSION_TOKEN"]:
-        os.environ.pop(key, None)
+    # Restore original values
+    for key, value in originals.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 @pytest.fixture(scope="function")

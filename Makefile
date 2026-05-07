@@ -181,7 +181,7 @@ run-task:
 	@echo "ECS task triggered. Check CloudWatch logs for output."
 
 # Tear down all AWS infrastructure (Terraform destroy)
-teardown:
+teardown: install
 	@echo "⚠️  WARNING: This will destroy ALL AWS infrastructure for this project."
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
@@ -197,6 +197,14 @@ teardown:
 		fi \
 	else \
 		echo "Could not determine ECR repository name. Skipping image purge."; \
+	fi
+	$(eval S3_BUCKET := $(shell cd $(TF_DIR) && terraform output -raw s3_bucket_name 2>/dev/null))
+	@if [ -n "$(S3_BUCKET)" ]; then \
+		echo "Purging all object versions from S3 bucket '$(S3_BUCKET)'..."; \
+		$(VENV_PYTHON) scripts/purge_s3_versions.py $(S3_BUCKET) $(AWS_REGION) || exit 1; \
+		echo "S3 bucket emptied."; \
+	else \
+		echo "Could not determine S3 bucket name. Skipping S3 purge."; \
 	fi
 	cd $(TF_DIR) && terraform destroy -auto-approve
 	@echo "✅ All infrastructure destroyed."
