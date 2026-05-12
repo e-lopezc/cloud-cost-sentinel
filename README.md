@@ -123,6 +123,12 @@ This will:
 
 ## Architecture tradeoffs
 
+**ECS Fargate over Lambda**
+
+The scanner was built on ECS Fargate rather than Lambda primarily because of Lambda's hard 15-minute execution timeout. As the number of AWS resources in an account grows, scanning EC2, EBS, RDS, and S3 — including CloudWatch metrics lookups per resource — can exceed that limit. ECS tasks have no execution time cap, so the scanner can handle arbitrarily large accounts without hitting a wall.
+
+The tradeoff is cost and cold-start overhead: Lambda would be cheaper and simpler for small accounts where scans finish well under 15 minutes, but ECS gives more headroom as the workload scales.
+
 ---
 
 ## Potential improvements
