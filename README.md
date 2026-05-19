@@ -121,7 +121,7 @@ This will:
 
 The motivation for this project came from seeing it happen firsthand at work — different teams running POCs in a shared dev account, and when the POC ends, the resources don't. Idle EC2 instances, unattached EBS volumes, forgotten RDS snapshots — all quietly accumulating cost. Without tagging discipline, there's no easy way to even know who owns what. The scanner surfaces these automatically and summarises the associated costs, removing the need to rely on people remembering to clean up.
 
-The scanner identifies idle resources but doesn't tell you how much they're actually costing. I initially considered using fixed price estimates, but AWS pricing is too variable — it changes by region, instance type, and purchase option. The right approach is to query the AWS Pricing API directly so the cost figures are always accurate and up to date, not assumptions baked into the code.
+The scanner identifies idle resources and look for make a cost estimation. I initially considered using fixed price estimates, but AWS pricing is too variable — it changes by region, instance type, and purchase option. The right approach is to query the AWS Pricing API directly so the cost figures are always accurate as much as possible, not assumptions baked into the code.
 
 ---
 
