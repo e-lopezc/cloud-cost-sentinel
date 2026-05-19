@@ -14,8 +14,7 @@ EventBridge (daily cron)
             └─► Alerts  → SNS → Email
 ```
 
-All infrastructure is managed with Terraform and lives in the appropiate enviroment you configured  `terraform/environments/<dev/staging/prod>`
-For demostration purposes I have dev directory there.
+All infrastructure is managed with Terraform under `terraform/environments/`. The repository ships with a `dev` environment ready to use.
 
 ---
 
@@ -115,6 +114,30 @@ This will:
 1. Purge all ECR images
 2. Empty the S3 reports bucket (all versions)
 3. Run `terraform destroy`
+
+---
+
+## Lessons learned
+
+The motivation for this project came from seeing it happen firsthand at work — different teams running POCs in a shared dev account, and when the POC ends, the resources don't. Idle EC2 instances, unattached EBS volumes, forgotten RDS snapshots — all quietly accumulating cost. Without tagging discipline, there's no easy way to even know who owns what. The scanner surfaces these automatically and summarises the associated costs, removing the need to rely on people remembering to clean up.
+
+The scanner identifies idle resources but doesn't tell you how much they're actually costing. I initially considered using fixed price estimates, but AWS pricing is too variable — it changes by region, instance type, and purchase option. The right approach is to query the AWS Pricing API directly so the cost figures are always accurate and up to date, not assumptions baked into the code.
+
+---
+
+## Architecture tradeoffs
+
+**ECS Fargate over Lambda**
+
+The scanner was built on ECS Fargate rather than Lambda primarily because of Lambda's hard 15-minute execution timeout. As the number of AWS resources in an account grows, scanning EC2, EBS, RDS, and S3 — including CloudWatch metrics lookups per resource — can exceed that limit. ECS tasks have no execution time cap, so the scanner can handle arbitrarily large accounts without hitting a wall.
+
+The tradeoff is cost and cold-start overhead: Lambda would be cheaper and simpler for small accounts where scans finish well under 15 minutes, but ECS gives more headroom as the workload scales.
+
+---
+
+## Potential improvements
+
+- Add an optional cleanup mode that can delete or stop idle resources after flagging them, with a dry-run option for safety.
 
 ---
 
